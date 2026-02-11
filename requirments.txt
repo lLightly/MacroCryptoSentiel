@@ -1,0 +1,6 @@
+# MacroCryptoSentinel/requirements.txt
+requests
+pandas
+streamlit
+plotly  # Для будущих графиков в Streamlit
+yfinance  # Для VIX, S&P, BTC (если добавишь)
