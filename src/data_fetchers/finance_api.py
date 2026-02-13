@@ -1,3 +1,4 @@
+# finance_api.py (обновленный: добавлен fetch_eth)
 import yfinance as yf
 import pandas as pd
 
@@ -28,6 +29,27 @@ def fetch_btc(start: str = "2014-09-17", interval: str = "1d") -> pd.DataFrame:
 
     if df.empty:
         raise RuntimeError("Не удалось загрузить данные BTC")
+
+    df = df.reset_index()
+    df = df[["Date", "Open", "High", "Low", "Close", "Volume"]]
+    df.rename(columns={
+        "Date": "date",
+        "Open": "open",
+        "High": "high",
+        "Low": "low",
+        "Close": "close",
+        "Volume": "volume"
+    }, inplace=True)
+
+    return df
+
+
+def fetch_eth(start: str = "2015-08-07", interval: str = "1d") -> pd.DataFrame:  # Дата старта ETH
+    ticker_obj = yf.Ticker("ETH-USD")
+    df = ticker_obj.history(start=start, interval=interval)
+
+    if df.empty:
+        raise RuntimeError("Не удалось загрузить данные ETH")
 
     df = df.reset_index()
     df = df[["Date", "Open", "High", "Low", "Close", "Volume"]]

@@ -1,12 +1,21 @@
+# cot_parser.py (обновленный: добавлена поддержка asset, с market для ETH)
 import requests
 import pandas as pd
 
 BASE_URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
-BTC_MARKET = "BITCOIN - CHICAGO MERCANTILE EXCHANGE"
 LIMIT = 50000
 
-def fetch_cot_raw() -> pd.DataFrame:
-    print("Fetching Legacy COT data for BTC...")
+MARKETS = {
+    'BTC': "BITCOIN - CHICAGO MERCANTILE EXCHANGE",
+    'ETH': "ETHER CASH SETTLED - CHICAGO MERCANTILE EXCHANGE"
+}
+
+def fetch_cot_raw(asset: str = 'BTC') -> pd.DataFrame:
+    market = MARKETS.get(asset.upper())
+    if not market:
+        raise ValueError(f"Unknown asset: {asset}")
+    
+    print(f"Fetching Legacy COT data for {asset}...")
     offset = 0
     data = []
 
@@ -14,7 +23,7 @@ def fetch_cot_raw() -> pd.DataFrame:
         params = {
             "$limit": LIMIT,
             "$offset": offset,
-            "$where": f"market_and_exchange_names='{BTC_MARKET}'"
+            "$where": f"market_and_exchange_names='{market}'"
         }
 
         r = requests.get(BASE_URL, params=params, timeout=30)
