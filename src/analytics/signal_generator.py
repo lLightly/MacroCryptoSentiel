@@ -1,3 +1,4 @@
+# signal_generator.py (без изменений)
 from typing import Dict
 
 def generate_vix_signal(deviation_pct: float, levels: Dict[str, float]) -> str:

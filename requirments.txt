@@ -1,6 +1,0 @@
-# MacroCryptoSentinel/requirements.txt
-requests
-pandas
-streamlit
-plotly
-yfinance

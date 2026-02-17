@@ -1,0 +1,6 @@
+# requirements.txt (без изменений)
+requests
+pandas
+streamlit
+plotly
+yfinance

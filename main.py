@@ -1,9 +1,9 @@
-# main.py (обновленный: добавлено обновление для ETH)
+# main.py (обновленный: добавлен Z-Score в обработку COT, новые фетчи для nasdaq, dxy, us10y)
 import os
-from src.data_fetchers.finance_api import fetch_vix, fetch_btc, fetch_spx, fetch_eth
+from src.data_fetchers.finance_api import fetch_vix, fetch_btc, fetch_spx, fetch_eth, fetch_nasdaq, fetch_dxy, fetch_us10y
 from src.data_fetchers.cot_parser import fetch_cot_raw, preprocess
 from src.analytics.indicators import build_indicators
-from src.analytics.statistics import add_vix_deviation_indicators
+from src.analytics.statistics import add_vix_deviation_indicators, calculate_z_score
 from src.utils.helpers import save_csv
 
 os.makedirs("data/raw", exist_ok=True)
@@ -32,6 +32,21 @@ def main():
     spx = fetch_spx()
     save_csv(spx, "data/processed/spx_price.csv")
 
+    # Nasdaq
+    print("Скачиваем Nasdaq...")
+    nasdaq = fetch_nasdaq()
+    save_csv(nasdaq, "data/processed/nasdaq_price.csv")
+
+    # DXY
+    print("Скачиваем DXY...")
+    dxy = fetch_dxy()
+    save_csv(dxy, "data/processed/dxy_price.csv")
+
+    # US10Y
+    print("Скачиваем US10Y...")
+    us10y = fetch_us10y()
+    save_csv(us10y, "data/processed/us10y_price.csv")
+
     # COT BTC
     print("Скачиваем и обрабатываем COT данные для BTC...")
     cot_raw = fetch_cot_raw('BTC')
@@ -39,6 +54,7 @@ def main():
         save_csv(cot_raw, "data/raw/btc_cot_raw.csv")
         cot_processed = preprocess(cot_raw)
         cot_processed = build_indicators(cot_processed)
+        cot_processed = calculate_z_score(cot_processed)  # Добавлен Z-Score
         cot_processed = cot_processed.sort_values("date").reset_index(drop=True)
         save_csv(cot_processed, "data/processed/btc_cot_processed.csv")
 
@@ -49,6 +65,7 @@ def main():
         save_csv(cot_eth_raw, "data/raw/eth_cot_raw.csv")
         cot_eth_processed = preprocess(cot_eth_raw)
         cot_eth_processed = build_indicators(cot_eth_processed)
+        cot_eth_processed = calculate_z_score(cot_eth_processed)  # Добавлен Z-Score
         cot_eth_processed = cot_eth_processed.sort_values("date").reset_index(drop=True)
         save_csv(cot_eth_processed, "data/processed/eth_cot_processed.csv")
         print("Все данные успешно обновлены.")

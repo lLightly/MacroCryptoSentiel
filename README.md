@@ -1,7 +1,7 @@
-# README.md (новый: добавьте этот файл в корень проекта)
+# README.md (обновленный: добавьте описание новых фич)
 # MacroCryptoSentinel
 
-Это дашборд для мониторинга макро-индикаторов криптовалют (BTC и ETH) с использованием VIX и COT отчетов.
+Это дашборд для мониторинга макро-индикаторов криптовалют (BTC и ETH) с использованием VIX, COT отчетов и макро-контекста.
 
 ## Установка
 1. Клонируйте репозиторий.
@@ -9,15 +9,15 @@
 3. Запустите: `streamlit run app.py`
 
 ## Функции
-- **BITCOIN Dashboard**: Графики цены BTC, VIX отклонений, COT индексов, net positions, open interest.
-- **BTC COT Details**: Детальные COT графики для BTC.
-- **ETHUSDT Dashboard**: Аналогично для ETH.
-- **ETH COT Details**: Детальные COT графики для ETH.
+- **BITCOIN Dashboard / ETHUSDT Dashboard**: Графики цены, VIX отклонений, COT индексов, net positions, open interest, Z-Score.
+- **BTC COT Details / ETH COT Details**: Детальные COT графики включая Z-Score.
+- **Macro Context**: Графики Risk-On/Risk-Off, Liquidity Vacuum, Rolling Correlation.
+- **Conclusion**: Алгоритмический Scorecard с баллами и вердиктом (Strong Buy/Neutral/Sell).
 - Обновление данных: Кнопка для фетча свежих данных.
 
 ## Данные
 - COT от CFTC (BTC и ETH).
-- Цены от Yahoo Finance (BTC-USD, ETH-USD, ^VIX, ^GSPC).
+- Цены от Yahoo Finance (BTC-USD, ETH-USD, ^VIX, ^GSPC, ^IXIC, DX-Y.NYB, ^TNX).
 - Хранятся в `data/raw/` и `data/processed/`.
 
 ## Структура
