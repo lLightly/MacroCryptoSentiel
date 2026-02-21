@@ -1,32 +1,33 @@
-# Byte-code files
+# Byte-code
 *.pyc
 __pycache__/
 
-# Virtual environment
+# Virtual environments
 .venv/
 env/
 venv/
-# Windows at the root of the repo
-venv/Scripts/activate.bat
+venv/Scripts/activate.bat  # Windows
 
-# IDE and editor files
-.idea/          # PyCharm
-.vscode/        # VS Code (optional, if you want to ignore user-specific settings)
-*.swp           # Vim swap files
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
 
-# Build artifacts
+# Build / coverage artefacts
 build/
 dist/
 *.egg-info/
 .coverage
 
-# Environment variables
+# Env-vars
 .env
 
 # Installer logs
 pip-log.txt
 pip-delete-this-line.txt
 
-# OS generated files
-.DS_Store       # macOS
-Thumbs.db       # Windows
+# OS-generated
+.DS_Store
+Thumbs.db
+
+*.csv

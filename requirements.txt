@@ -1,6 +1,12 @@
-# requirements.txt (без изменений)
-requests
 pandas
+numpy
+requests
+yfinance
+
 streamlit
 plotly
-yfinance
+pyyaml
+
+scikit-learn
+backtrader
+pyfolio

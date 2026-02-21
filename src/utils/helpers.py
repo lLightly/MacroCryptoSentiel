@@ -1,13 +1,12 @@
-# MacroCryptoSentinel/src/utils/helpers.py
-from pathlib import Path
-import pandas as pd
-import os
+from __future__ import annotations
 
-def save_csv(df: pd.DataFrame, path: str):
-    """
-    Универсальная функция сохранения CSV с автоматическим созданием папок.
-    """
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-    print(f"Сохранено: {path}")
+from pathlib import Path
+
+import pandas as pd
+
+
+def save_csv(df: pd.DataFrame, path: str) -> None:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(p, index=False)
+    print(f"✓ Saved: {p}")

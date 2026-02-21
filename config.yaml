@@ -1,0 +1,103 @@
+data_dir: data/processed
+
+files:
+  vix: vix_processed.csv
+  btc_cot: btc_cot_processed.csv
+  btc: btc_price.csv
+  eth_cot: eth_cot_processed.csv
+  eth: eth_price.csv
+  spx: spx_price.csv
+  nasdaq: nasdaq_price.csv
+  dxy: dxy_price.csv
+  us10y: us10y_price.csv
+
+ui:
+  plot_padding_days: 7
+  sigma_levels: [1, 2]
+  default_years: 3
+  slider_step_days: 7
+
+assets:
+  btc:
+    price_start: "2020-05-12"
+    cot_min_date: "2020-05-12"
+  eth:
+    price_start: "2023-03-28"
+    cot_min_date: "2023-03-28"
+  macro_min_date: "2020-05-12"
+  conclusion_min_date: "2020-05-12"
+
+cot:
+  weeks_in_year: 52
+  default_years: 3
+
+signals:
+  step_days: 7
+  start_fraction: 0.5
+  min_start_bars: 200
+  min_price_rows: 300
+  min_feature_rows: 50
+  dyn_min_score:
+    base: 1.5
+    vix_scale: 0.3
+    vix_divisor: 50.0
+
+ml:
+  n_splits: 5
+  n_estimators: 120
+  random_state: 42
+  n_jobs: -1
+  target_horizon_days: 30
+  min_train_rows: 50
+  pred_to_score_divisor: 5.0
+
+scoring:
+  verdict_thresholds:
+    strong_buy: 4.0
+    buy: 1.5
+    neutral_band: 1.0
+    strong_sell: -4.0
+
+  trend_filter:
+    enabled: true
+    penalty_multiplier: 0.5
+
+  vix:
+    enabled: true
+    strong_risk_off:
+      score: -3.0
+    risk_off:
+      score: -1.8
+    strong_risk_on:
+      score: 3.0
+    risk_on:
+      score: 1.8
+
+  momentum:
+    enabled: true
+    strong_move_pct: 18
+    score: 0.9
+
+  liquidity:
+    enabled: true
+    dxy_strong_pct: 6
+    us10y_spike_pct: 12
+    score_each: 0.8
+
+  correlation:
+    enabled: true
+    threshold: 0.82
+    base: 0.7
+    slope: -0.7
+
+  cot:
+    enabled: true
+
+  ml:
+    enabled: true
+
+backtest:
+  initial_capital_default: 100.0
+  fee_default: 0.001
+  trailing_stop_pct: 1
+  trade_log_dir: logs
