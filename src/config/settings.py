@@ -1,3 +1,4 @@
+# src/config/settings.py
 from __future__ import annotations
 
 import datetime as dt
@@ -6,7 +7,13 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
+import logging
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('app.log', encoding='utf-8')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 CONFIG_PATH = Path("config.yaml")
 
@@ -59,11 +66,14 @@ class COTSettings:
 
 @dataclass(frozen=True)
 class SignalsSettings:
+    # In Compass mode this is the cadence of regime evaluation (monthly by default).
     step_days: int
     start_fraction: float
     min_start_bars: int
     min_price_rows: int
     min_feature_rows: int
+
+    # Legacy / trading-only (kept for backward compatibility)
     dyn_min_score_base: float
     dyn_min_score_vix_scale: float
     dyn_min_score_vix_divisor: float
@@ -111,7 +121,6 @@ class ScoringSettings:
     corr_slope: float
 
     cot_enabled: bool
-
     ml_enabled: bool
 
 
@@ -124,6 +133,12 @@ class BacktestSettings:
 
 
 @dataclass(frozen=True)
+class CompassSettings:
+    trend_horizon_months: int
+    validation_metrics: List[str]
+
+
+@dataclass(frozen=False)
 class Settings:
     raw: Dict[str, Any]
     data_dir: str
@@ -137,6 +152,10 @@ class Settings:
     scoring: ScoringSettings
     backtest: BacktestSettings
 
+    # New: Global Compass mode switch + settings
+    compass_mode: bool
+    compass: CompassSettings
+
 
 _SETTINGS: Settings | None = None
 
@@ -146,8 +165,8 @@ def get_settings() -> Settings:
     if _SETTINGS is not None:
         return _SETTINGS
 
-    raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    files = dict(raw.get("files", {}))
+    raw = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    files_map = dict(raw.get("files", {}))
 
     ui_raw = raw.get("ui", {})
     ui = UISettings(
@@ -178,7 +197,7 @@ def get_settings() -> Settings:
     sig_raw = raw.get("signals", {})
     dyn_raw = sig_raw.get("dyn_min_score", {})
     signals = SignalsSettings(
-        step_days=int(sig_raw.get("step_days", 7)),
+        step_days=int(sig_raw.get("step_days", 30)),
         start_fraction=float(sig_raw.get("start_fraction", 0.5)),
         min_start_bars=int(sig_raw.get("min_start_bars", 200)),
         min_price_rows=int(sig_raw.get("min_price_rows", 300)),
@@ -212,24 +231,30 @@ def get_settings() -> Settings:
         verdict_buy=float(vt.get("buy", 1.5)),
         verdict_neutral_band=float(vt.get("neutral_band", 1.0)),
         verdict_strong_sell=float(vt.get("strong_sell", -4.0)),
+
         trend_filter_enabled=bool(tf.get("enabled", True)),
         trend_penalty_multiplier=float(tf.get("penalty_multiplier", 0.5)),
+
         vix_enabled=bool(_get(sc_raw, "vix.enabled", True)),
         vix_strong_risk_off_score=float(_get(vix, "strong_risk_off.score", -3.0)),
         vix_risk_off_score=float(_get(vix, "risk_off.score", -1.8)),
         vix_strong_risk_on_score=float(_get(vix, "strong_risk_on.score", 3.0)),
         vix_risk_on_score=float(_get(vix, "risk_on.score", 1.8)),
+
         momentum_enabled=bool(_get(sc_raw, "momentum.enabled", True)),
         momentum_strong_move_pct=float(mom.get("strong_move_pct", 18)),
         momentum_score=float(mom.get("score", 0.9)),
+
         liquidity_enabled=bool(_get(sc_raw, "liquidity.enabled", True)),
         liquidity_dxy_strong_pct=float(liq.get("dxy_strong_pct", 6)),
         liquidity_us10y_spike_pct=float(liq.get("us10y_spike_pct", 12)),
         liquidity_score_each=float(liq.get("score_each", 0.8)),
+
         correlation_enabled=bool(_get(sc_raw, "correlation.enabled", True)),
         corr_threshold=float(corr.get("threshold", 0.82)),
         corr_base=float(corr.get("base", 0.7)),
         corr_slope=float(corr.get("slope", -0.7)),
+
         cot_enabled=bool(_get(sc_raw, "cot.enabled", True)),
         ml_enabled=bool(_get(sc_raw, "ml.enabled", True)),
     )
@@ -237,15 +262,22 @@ def get_settings() -> Settings:
     bt_raw = raw.get("backtest", {})
     backtest = BacktestSettings(
         initial_capital_default=float(bt_raw.get("initial_capital_default", 100.0)),
-        fee_default=float(bt_raw.get("fee_default", 0.001)),
-        trailing_stop_pct=float(bt_raw.get("trailing_stop_pct", 0.15)),
+        fee_default=float(bt_raw.get("fee_default", 0.0)),
+        trailing_stop_pct=float(bt_raw.get("trailing_stop_pct", 0.0)),
         trade_log_dir=str(bt_raw.get("trade_log_dir", "logs")),
+    )
+
+    compass_mode = bool(raw.get("compass_mode", False))
+    compass_raw = raw.get("compass", {}) or {}
+    compass = CompassSettings(
+        trend_horizon_months=int(compass_raw.get("trend_horizon_months", 3)),
+        validation_metrics=list(compass_raw.get("validation_metrics", ["accuracy", "regime_return"])),
     )
 
     _SETTINGS = Settings(
         raw=raw,
         data_dir=str(raw.get("data_dir", "data/processed")),
-        files=files,
+        files=files_map,
         ui=ui,
         assets=assets,
         cot=cot,
@@ -253,5 +285,7 @@ def get_settings() -> Settings:
         ml=ml,
         scoring=scoring,
         backtest=backtest,
+        compass_mode=compass_mode,
+        compass=compass,
     )
     return _SETTINGS

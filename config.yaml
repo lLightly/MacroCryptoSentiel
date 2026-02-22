@@ -1,5 +1,12 @@
 data_dir: data/processed
 
+# Global Compass mode switch (keeps legacy "Scalpel" stack available when false)
+compass_mode: true
+
+compass:
+  trend_horizon_months: 3
+  validation_metrics: ["accuracy", "regime_return"]
+
 files:
   vix: vix_processed.csv
   btc_cot: btc_cot_processed.csv
@@ -13,7 +20,7 @@ files:
 
 ui:
   plot_padding_days: 7
-  sigma_levels: [1, 2]
+  sigma_levels: [1, 2, 3]          # ← было [1, 2], теперь с третьей сигмой
   default_years: 3
   slider_step_days: 7
 
@@ -32,11 +39,13 @@ cot:
   default_years: 3
 
 signals:
+  # Compass cadence (monthly)
   step_days: 7
-  start_fraction: 0.5
-  min_start_bars: 200
-  min_price_rows: 300
-  min_feature_rows: 50
+  start_fraction: 0
+  min_start_bars: 0
+  min_price_rows: 0
+  min_feature_rows: 0
+  # Legacy-only (kept for backward compatibility)
   dyn_min_score:
     base: 1.5
     vix_scale: 0.3
@@ -58,8 +67,9 @@ scoring:
     neutral_band: 1.0
     strong_sell: -4.0
 
+  # Disabled modules for Global Compass (interpretive only)
   trend_filter:
-    enabled: true
+    enabled: false
     penalty_multiplier: 0.5
 
   vix:
@@ -74,18 +84,18 @@ scoring:
       score: 1.8
 
   momentum:
-    enabled: true
+    enabled: false
     strong_move_pct: 18
     score: 0.9
 
   liquidity:
-    enabled: true
+    enabled: false
     dxy_strong_pct: 6
     us10y_spike_pct: 12
     score_each: 0.8
 
   correlation:
-    enabled: true
+    enabled: false
     threshold: 0.82
     base: 0.7
     slope: -0.7
@@ -97,7 +107,8 @@ scoring:
     enabled: true
 
 backtest:
+  # Trading params are neutralized in Compass mode
   initial_capital_default: 100.0
-  fee_default: 0.001
-  trailing_stop_pct: 1
+  fee_default: 0.0
+  trailing_stop_pct: 0.0
   trade_log_dir: logs

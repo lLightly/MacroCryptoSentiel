@@ -1,9 +1,10 @@
+# app.py
 from __future__ import annotations
 
 import datetime as dt
-
 import pandas as pd
 import streamlit as st
+import logging
 
 from main import main as update_data
 from src.analytics.signal_generator import generate_conclusion
@@ -11,13 +12,13 @@ from src.config.settings import get_settings
 from src.services.data_loader import all_data_loaded, filter_df, load_dataset
 from src.ui.dashboards import backtesting_dashboard, btc_dashboard, eth_dashboard, macro_dashboard
 
+logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w', format='%(name)s - %(levelname)s - %(message)s', encoding='utf-8')
 
-st.set_page_config(page_title="MacroCryptoSentinel", layout="wide")
-st.title("MacroCryptoSentinel")
+st.set_page_config(page_title="MacroCryptoSentinel — Global Compass", layout="wide")
+st.title("🧭 MacroCryptoSentinel — Global Compass")
 
 settings = get_settings()
 DATASETS: list[str] = list(settings.files.keys())
-
 
 if st.button("Обновить все данные"):
     with st.spinner("Скачиваю и обрабатываю данные…"):
@@ -41,11 +42,15 @@ if not all_data_loaded(dfs):
 def _cot_default_start(cot_df: pd.DataFrame | None, asset_min_date: dt.date, weeks_back: int) -> dt.date:
     if cot_df is None or cot_df.empty or "date" not in cot_df.columns:
         return asset_min_date
+
     cot_dates = sorted(pd.to_datetime(cot_df["date"]).dt.date.unique())
+
     if not cot_dates:
         return asset_min_date
+
     if len(cot_dates) <= weeks_back + 5:
         return max(asset_min_date, cot_dates[0])
+
     return max(asset_min_date, cot_dates[-weeks_back - 1])
 
 
@@ -57,14 +62,20 @@ eth_cot_df = dfs.get("eth_cot")
 
 btc_min_date = max(
     settings.assets.btc_cot_min_date,
-    pd.to_datetime(btc_cot_df["date"]).min().date() if btc_cot_df is not None and not btc_cot_df.empty else settings.assets.btc_cot_min_date,
+    pd.to_datetime(btc_cot_df["date"]).min().date()
+    if btc_cot_df is not None and not btc_cot_df.empty
+    else settings.assets.btc_cot_min_date,
 )
+
 eth_min_date = max(
     settings.assets.eth_cot_min_date,
-    pd.to_datetime(eth_cot_df["date"]).min().date() if eth_cot_df is not None and not eth_cot_df.empty else settings.assets.eth_cot_min_date,
+    pd.to_datetime(eth_cot_df["date"]).min().date()
+    if eth_cot_df is not None and not eth_cot_df.empty
+    else settings.assets.eth_cot_min_date,
 )
 
 weeks_back = settings.cot.default_weeks
+
 default_btc_start = _cot_default_start(btc_cot_df, btc_min_date, weeks_back)
 default_eth_start = _cot_default_start(eth_cot_df, eth_min_date, weeks_back)
 
@@ -72,7 +83,6 @@ macro_min_date = settings.assets.macro_min_date
 default_macro_start = max(macro_min_date, dt.date(global_max_date.year - settings.ui.default_years, 1, 1))
 
 conclusion_min_date = settings.assets.conclusion_min_date
-default_concl_start = max(conclusion_min_date, dt.date(global_max_date.year - settings.ui.default_years, 1, 1))
 
 
 def _filtered(asset: str, start: dt.date, end: dt.date):
@@ -89,11 +99,13 @@ def _filtered(asset: str, start: dt.date, end: dt.date):
     )
 
 
-tab_btc, tab_eth, tab_macro, tab_conclusion, tab_backtest = st.tabs(
-    ["BITCOIN Dashboard", "ETH Dashboard", "Macro Context", "Conclusion", "Backtesting"]
-)
+tab_names = ["BITCOIN Dashboard", "ETH Dashboard", "Macro Context", "Conclusion"]
+tab_names.append("Trend Validation" if settings.compass_mode else "Backtesting")
+
+tab_btc, tab_eth, tab_macro, tab_conclusion, tab_last = st.tabs(tab_names)
 
 slider_step = dt.timedelta(days=int(settings.ui.slider_step_days))
+
 
 with tab_btc:
     start_date, end_date = st.slider(
@@ -107,6 +119,7 @@ with tab_btc:
     )
     btc_dashboard(_filtered("BTC", start_date, end_date))
 
+
 with tab_eth:
     start_date, end_date = st.slider(
         "Выберите диапазон дат для ETH",
@@ -118,6 +131,7 @@ with tab_eth:
         key="eth_slider",
     )
     eth_dashboard(_filtered("ETH", start_date, end_date))
+
 
 with tab_macro:
     start_date, end_date = st.slider(
@@ -131,63 +145,74 @@ with tab_macro:
     )
     macro_dashboard(_filtered("BTC", start_date, end_date))
 
+
 with tab_conclusion:
-    start_date, end_date = st.slider(
-        "Выберите диапазон дат для Conclusion",
+    end_date = st.slider(
+        "Выберите дату обзора (as of)",
         min_value=conclusion_min_date,
         max_value=global_max_date,
-        value=(default_concl_start, global_max_date),
-        step=slider_step,
+        value=global_max_date,
+        step=dt.timedelta(days=1),
         format="DD.MM.YYYY",
         key="concl_slider",
     )
-    filtered_dfs = {k: filter_df(v, start_date, end_date) for k, v in dfs.items() if v is not None}
-    per_asset, total_score, verdict = generate_conclusion(filtered_dfs)
 
-    st.subheader("Алгоритмическая таблица сигналов")
-    valid_scores = []
+    filtered_dfs = {k: filter_df(v, conclusion_min_date, end_date) for k, v in dfs.items() if v is not None}
+
+    concl = generate_conclusion(filtered_dfs)
+
+    if isinstance(concl, tuple) and len(concl) == 3:
+        per_asset, combined_score, combined_verdict = concl
+        combined_narrative = ""
+    else:
+        per_asset, combined_score, combined_verdict, combined_narrative = concl
+
+    st.subheader("🧭 Global Compass — факторы и режим")
+
     has_data = False
 
-    for asset, (df_table, total, asset_verdict, confidence) in per_asset.items():
+    for asset, item in per_asset.items():
+        if len(item) == 4:
+            df_table, total, asset_verdict, confidence = item  # legacy
+            narrative = ""
+        else:
+            df_table, total, asset_verdict, confidence, narrative = item  # compass
+
         if asset_verdict == "No data":
             st.markdown(f"### {asset}: No data in selected range")
             continue
 
-        st.markdown(f"### {asset}")
-        st.dataframe(df_table.style.format({"Score": "{:+.2f}"}), width="stretch")
-        st.markdown(f"**Итог ({asset}): {total:+.2f} → {asset_verdict}**  \n**Confidence:** {confidence:.2f}")
-
-        valid_scores.append(total)
         has_data = True
+        st.markdown(f"### {asset}")
 
-    if has_data:
-        total_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
-        combined_verdict = (
-            "🚀 Сильный лонг"
-            if total_score >= 4.0
-            else "📈 Лонг"
-            if total_score >= 2.2
-            else "⚖️ Нейтрально"
-            if abs(total_score) < 1.8
-            else "🔻 Шорт"
-            if total_score > -4.0
-            else "🛑 Сильный шорт"
-        )
+        if not df_table.empty:
+            st.dataframe(df_table.style.format({"Score": "{:+.2f}"}), width="stretch")
+
+        st.markdown(f"**Итог ({asset}): {total:+.2f} → {asset_verdict}** \n**Confidence:** {confidence:.2f}")
+
+        if narrative:
+            st.markdown("**Narrative:**")
+            st.markdown(narrative)
+
+    if not has_data:
+        st.warning("Нет данных в выбранном диапазоне.")
     else:
-        total_score = 0.0
-        combined_verdict = "No data"
+        st.markdown(
+            f"""
+---
+### <span style="font-size:24px">Комбинированный обзор рынка</span>
+**Суммарный балл**: {combined_score:+.2f}
+**Вердикт**: **{combined_verdict}**
+""",
+            unsafe_allow_html=True,
+        )
+        if combined_narrative:
+            st.markdown("---")
+            st.markdown(combined_narrative)
 
-    st.markdown(
-        f"""
-        ---
-        ### <span style="font-size:24px">Комбинированный обзор рынка</span>
-        **Суммарный балл**: {total_score:+.2f}  
-        **Вердикт**: **{combined_verdict}**
-        """,
-        unsafe_allow_html=True,
-    )
 
-with tab_backtest:
+with tab_last:
     backtesting_dashboard(dfs, btc_min_date, eth_min_date, global_max_date)
 
-st.caption("MacroCryptoSentinel — probabilistic signals for BTC/ETH with macro context.")
+
+st.caption("MacroCryptoSentinel — Global Compass: Macro + COT regime interpretation for BTC/ETH.")

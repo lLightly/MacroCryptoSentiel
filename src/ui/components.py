@@ -1,3 +1,4 @@
+# src/ui/components.py (modified)
 from __future__ import annotations
 
 import pandas as pd
@@ -8,19 +9,16 @@ from src.config.settings import get_settings
 
 DEFAULT_TEMPLATE = "plotly_dark"
 
-
 def _pad(fig: go.Figure, x: pd.Series, padding_days: int) -> go.Figure:
     pad = pd.Timedelta(days=padding_days)
     fig.update_xaxes(range=[x.min() - pad, x.max() + pad])
     return fig
-
 
 def _set_x_range(fig: go.Figure, x_range_min, x_range_max, padding_days: int) -> None:
     if x_range_min is None or x_range_max is None:
         return
     pad = pd.Timedelta(days=padding_days)
     fig.update_xaxes(range=[x_range_min - pad, x_range_max + pad])
-
 
 def candlestick(
     df: pd.DataFrame,
@@ -57,7 +55,6 @@ def candlestick(
     )
     return fig
 
-
 def vix_deviation(
     df: pd.DataFrame,
     sigma_levels=None,
@@ -70,7 +67,6 @@ def vix_deviation(
     sigma_levels = sigma_levels if sigma_levels is not None else s.ui.sigma_levels
 
     levels = get_deviation_levels(df, sigma_levels=list(sigma_levels))
-    thresh = get_quantile_thresholds(df["deviation_pct"])
 
     fig = go.Figure()
     fig.add_trace(
@@ -93,46 +89,35 @@ def vix_deviation(
     )
 
     for sigma in sigma_levels:
-        dash = "dash" if sigma == 1 else "solid"
-        for sign, color in [("+", "orange"), ("-", "limegreen")]:
+        dash = "dot" if sigma == 1 else "dash" if sigma == 2 else "solid"
+        width = 3 if sigma == 3 else 2
+        for sign, color in [("+", "red"), ("-", "limegreen")]:
+            name = f"{sign}{sigma}σ"
+            if sigma == 3 and sign == "+":
+                name = "+++ ЭКСТРЕМАЛЬНОЕ ДНО +++"
             fig.add_trace(
                 go.Scatter(
                     x=[df["date"].min(), df["date"].max()],
                     y=[levels[f"{sign}{sigma}σ"]] * 2,
                     mode="lines",
-                    name=f"{sign}{sigma}σ",
-                    line=dict(color=color, dash=dash),
+                    name=name,
+                    line=dict(color=color, dash=dash, width=width),
                 )
             )
-
-    fig.add_hline(
-        y=thresh["p95"],
-        line=dict(color="red", dash="dot", width=2),
-        annotation_text=f"p95 = {thresh['p95']:.1f}%",
-        annotation_position="bottom right",
-    )
-    fig.add_hline(y=thresh["p90"], line=dict(color="orange", dash="dot"), annotation_text=f"p90 = {thresh['p90']:.1f}%")
-    fig.add_hline(y=thresh["p10"], line=dict(color="lime", dash="dot"), annotation_text=f"p10 = {thresh['p10']:.1f}%")
-    fig.add_hline(
-        y=thresh["p5"],
-        line=dict(color="limegreen", dash="dot", width=2),
-        annotation_text=f"p5 = {thresh['p5']:.1f}%",
-    )
 
     _set_x_range(fig, x_range_min, x_range_max, padding_days)
     if x_range_min is None or x_range_max is None:
         _pad(fig, df["date"], padding_days)
 
     fig.update_layout(
-        title="VIX Mean-Reversion Deviation (%)",
+        title="VIX Mean-Reversion Deviation (%) — теперь с +3σ",
         yaxis_title="Deviation (%)",
         template=DEFAULT_TEMPLATE,
         height=420,
         hovermode="x unified",
-        showlegend=False,
+        showlegend=True, # включили легенду, чтобы было видно +3σ
     )
     return fig
-
 
 def cot_index(
     df: pd.DataFrame,
@@ -174,7 +159,6 @@ def cot_index(
     )
     return fig
 
-
 def net_positions(
     df: pd.DataFrame,
     padding_days: int | None = None,
@@ -203,7 +187,6 @@ def net_positions(
     )
     return fig
 
-
 def z_score(
     df: pd.DataFrame,
     padding_days: int | None = None,
@@ -214,7 +197,7 @@ def z_score(
     padding_days = padding_days if padding_days is not None else s.ui.plot_padding_days
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["date"], y=df["Z_Score_Large"], name="Z-Score", line=dict(color="yellow", width=2)))
+    fig.add_trace(go.Scatter(x=df["date"], y=df["Z_Score_Comm"], name="Z-Score", line=dict(color="yellow", width=2))) # ← Z_Score_Comm
     fig.add_hline(y=2, line_color="red", line_dash="dash")
     fig.add_hline(y=-2, line_color="green", line_dash="dash")
 
@@ -223,7 +206,7 @@ def z_score(
         _pad(fig, df["date"], padding_days)
 
     fig.update_layout(
-        title="COT Z-Score (Large, 2y)",
+        title="COT Z-Score (Commercial, 2y)", # ← обновлён заголовок
         yaxis_title="Z-Score",
         template=DEFAULT_TEMPLATE,
         height=400,
@@ -231,7 +214,6 @@ def z_score(
         showlegend=False,
     )
     return fig
-
 
 def open_interest(
     df: pd.DataFrame,
@@ -259,7 +241,6 @@ def open_interest(
         showlegend=False,
     )
     return fig
-
 
 def normalised_performance(
     series_map: dict[str, pd.DataFrame],
@@ -292,7 +273,6 @@ def normalised_performance(
         showlegend=False,
     )
     return fig
-
 
 def liquidity_vacuum(
     df_btc: pd.DataFrame,
@@ -328,7 +308,6 @@ def liquidity_vacuum(
         showlegend=False,
     )
     return fig
-
 
 def rolling_correlation(
     df_btc: pd.DataFrame,
@@ -374,10 +353,10 @@ def rolling_correlation(
     )
     return fig
 
-
 def equity_curve_chart(
     df: pd.DataFrame,
     initial_capital: float,
+    signals: pd.DataFrame | None = None,
     padding_days: int | None = None,
     x_range_min=None,
     x_range_max=None,
@@ -416,6 +395,28 @@ def equity_curve_chart(
         )
 
     fig.add_hline(y=initial_capital, line_dash="dash", line_color="gray", annotation_text="Initial Capital")
+
+    # Добавляем маркеры сигналов, если signals предоставлены
+    if signals is not None and not signals.empty:
+        signals = signals.copy()
+        signals["date"] = pd.to_datetime(signals["date"]).dt.normalize()
+        for verdict, color in [("Bullish Trend", "green"), ("Bearish Trend", "red"), ("Neutral", "yellow")]:
+            sig = signals[signals["verdict"] == verdict]
+            if sig.empty:
+                continue
+            # Поскольку dates сигналов - подмножество df["date"], join по date
+            merged = pd.merge(sig[["date"]], df[["date", "Equity"]], on="date", how="inner")
+            fig.add_trace(
+                go.Scatter(
+                    x=merged["date"],
+                    y=merged["Equity"],
+                    mode="markers",
+                    marker=dict(color=color, size=12, symbol="circle", line=dict(width=2, color="black")),
+                    name=verdict,
+                    hovertemplate="Date: %{x|%d.%m.%Y}<br>Equity: $%{y:,.2f}<br>Regime: " + verdict + "<extra></extra>",
+                    showlegend=True,
+                )
+            )
 
     _set_x_range(fig, x_range_min, x_range_max, padding_days)
     if x_range_min is None or x_range_max is None:

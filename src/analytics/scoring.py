@@ -1,21 +1,51 @@
+# src/analytics/scoring.py
 from __future__ import annotations
 
 from typing import Dict, Tuple
 
 from src.config.settings import get_settings
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('app.log', encoding='utf-8')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 
-def vix_score(dev_pct: float, thresh: Dict[str, float]) -> Tuple[float, str]:
+def vix_score(dev_pct: float, levels: Dict[str, float]) -> Tuple[float, str]:
+    """VIX scoring по mean-reversion + твоя логика:
+    +3σ = экстремальное дно → ультра-закупка в спот
+    +2σ = сильное дно → закупка
+    -3σ / -2σ = комплаенс на максимуме → сильная продажа"""
     s = get_settings().scoring
-    if dev_pct >= thresh.get("p95", 999):
-        return s.vix_strong_risk_off_score, "VIX ≥95p"
-    if dev_pct >= thresh.get("p90", 999):
-        return s.vix_risk_off_score, "VIX ≥90p"
-    if dev_pct <= thresh.get("p5", -999):
-        return s.vix_strong_risk_on_score, "VIX ≤5p"
-    if dev_pct <= thresh.get("p10", -999):
-        return s.vix_risk_on_score, "VIX ≤10p"
-    return 0.0, "VIX neutral"
+
+    logger.debug(f"VIX dev_pct: {dev_pct}, levels: {levels}")
+
+    if dev_pct >= levels.get("+3σ", 999):
+        score = 1000  # чтобы гарантированно сработал Bullish
+        text = "VIX ≥ +3σ → ЭКСТРЕМАЛЬНОЕ ДНО! Максимальная закупка в спот. Ожидаем мощнейшего отскока BTC (импульс VIX → симметричный рост актива)"
+    elif dev_pct >= levels.get("+2σ", 999):
+        score = s.vix_strong_risk_on_score
+        text = "VIX ≥ +2σ → Актив на дне! Закупаемся в спот (Buy the fear). При падении VIX BTC вырастет примерно в той же пропорции"
+    elif dev_pct >= levels.get("+1σ", 999):
+        score = s.vix_risk_on_score
+        text = "VIX ≥ +1σ → Страх нарастает → умеренная покупка спота"
+    elif dev_pct <= levels.get("-3σ", -999):
+        score = -1000  # чтобы гарантированно сработал Bearish
+        text = "VIX ≤ -3σ → Сверхкомплаенс → максимальная продажа / выход в кеш"
+    elif dev_pct <= levels.get("-2σ", -999):
+        score = s.vix_strong_risk_off_score
+        text = "VIX ≤ -2σ → Комплаенс на максимуме → сильная продажа / не держать"
+    elif dev_pct <= levels.get("-1σ", -999):
+        score = s.vix_risk_off_score
+        text = "VIX ≤ -1σ → Комплаенс → умеренная продажа"
+    else:
+        score = 0.0
+        text = "VIX neutral (±1σ) — ждём движения"
+
+    logger.debug(f"VIX score: {score}, text: {text}")
+    return score, text
 
 
 def momentum_score(pct_30d: float) -> Tuple[float, str]:
@@ -31,22 +61,21 @@ def momentum_score(pct_30d: float) -> Tuple[float, str]:
 
 def liquidity_score(dxy_30d: float, us10y_30d: float) -> Tuple[float, str]:
     s = get_settings().scoring
-    score_each = s.liquidity_score_each
     score = 0.0
     parts = []
 
     if dxy_30d >= s.liquidity_dxy_strong_pct:
-        score -= score_each
+        score -= s.liquidity_score_each
         parts.append("DXY strong")
     elif dxy_30d <= -s.liquidity_dxy_strong_pct:
-        score += score_each
+        score += s.liquidity_score_each
         parts.append("DXY weak")
 
     if us10y_30d >= s.liquidity_us10y_spike_pct:
-        score -= score_each
+        score -= s.liquidity_score_each
         parts.append("10Y spike")
     elif us10y_30d <= -s.liquidity_us10y_spike_pct:
-        score += score_each
+        score += s.liquidity_score_each
         parts.append("10Y drop")
 
     return score, " | ".join(parts) if parts else "Liquidity neutral"

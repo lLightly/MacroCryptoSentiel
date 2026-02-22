@@ -1,3 +1,4 @@
+# src/analytics/backtest.py
 from __future__ import annotations
 
 import csv
@@ -14,6 +15,10 @@ from src.analytics.signal_generator import generate_signals
 from src.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler('app.log', encoding='utf-8')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 
 @dataclass
@@ -141,6 +146,8 @@ def run_backtest(
     start_date=None,
     end_date=None,
 ) -> BacktestResult:
+    logger.debug(f"Running backtest for {asset}, capital={initial_capital}, fee={fee_pct}, start={start_date}, end={end_date}")
+
     asset_key = asset.lower()
 
     if asset_key not in dfs or dfs[asset_key] is None or dfs[asset_key].empty:
@@ -172,6 +179,7 @@ def run_backtest(
 
     equity_curve = pd.DataFrame({"date": strat.dates, "close": df_price["close"].values[: len(strat.dates)], "Equity": strat.equity_list})
     equity_curve["date"] = pd.to_datetime(equity_curve["date"]).dt.normalize()
+    logger.debug(f"Equity curve: {equity_curve.tail().to_dict()}")
 
     if len(equity_curve) < 2:
         metrics = {"total_return": 0.0, "sharpe": 0.0, "sortino": 0.0, "max_dd": 0.0, "calmar": 0.0}
@@ -191,4 +199,5 @@ def run_backtest(
         "max_dd": float(perf_stats.get("Max drawdown", 0.0)),
         "calmar": float(perf_stats.get("Calmar ratio", 0.0)),
     }
+    logger.debug(f"Backtest metrics: {metrics}")
     return BacktestResult(equity_curve, metrics, str(strat._log_path))

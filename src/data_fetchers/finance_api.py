@@ -32,7 +32,7 @@ def _fetch_yahoo(ticker: str, start: str, interval: str = "1d") -> pd.DataFrame:
     return df
 
 
-def fetch_vix(start: str = "2020-05-12", interval: str = "1d") -> pd.DataFrame:
+def fetch_vix(start: str = "2019-05-12", interval: str = "1d") -> pd.DataFrame:
     return _fetch_yahoo("^VIX", start, interval)
 
 
